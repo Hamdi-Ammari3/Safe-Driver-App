@@ -1,18 +1,28 @@
 import { useEffect, useState } from "react";
-import {View,Text,StyleSheet,TouchableOpacity,ScrollView,Alert} from "react-native";
+import {View,Text,StyleSheet,TouchableOpacity,ScrollView,Alert,Image} from "react-native";
 import { Ionicons, Feather } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { doc, getDoc } from "firebase/firestore";
+import { DB } from "../../../firebaseConfig";
 import { router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function Profile() {
   const [userName, setUserName] = useState("");
-  const [schoolName, setSchoolName] = useState("");
+  const [driverImage, setDriverImage] = useState(null);
 
   useEffect(() => {
     const loadProfile = async () => {
       const name = await AsyncStorage.getItem("SAFE_DRIVER_NAME");
       setUserName(name || "السائق");
+
+      const phone = await AsyncStorage.getItem("SAFE_DRIVER_USER");
+      if (!phone) return;
+
+      const driverSnap = await getDoc(doc(DB, "drivers", phone));
+      if (driverSnap.exists()) {
+        setDriverImage(driverSnap.data().personal_image || null);
+      }
     };
     loadProfile();
   }, []);
@@ -65,7 +75,11 @@ export default function Profile() {
         <View style={styles.profileCard}>
           <View style={styles.avatar_name_box}>
             <View style={styles.avatar}>
-              <Ionicons name="person" size={40} color="#fff" />
+              {driverImage ? (
+                <Image source={{ uri: driverImage }} style={styles.avatarImage} />
+              ) : (
+                <Ionicons name="person" size={40} color="#fff" />
+              )}
             </View>
             <View style={styles.userName_box}>
               <Text style={styles.userName}>{userName}</Text>
@@ -87,7 +101,7 @@ export default function Profile() {
                 <Ionicons
                   name={item.icon}
                   size={20}
-                  color="#2563eb"
+                  color="#8a6115"
                 />
               </View>
             </TouchableOpacity>
@@ -114,7 +128,7 @@ const styles = StyleSheet.create({
   header: {
     padding: 20,
     paddingBottom: 60,
-    backgroundColor:'#2563eb'
+    backgroundColor:'#D4AF37'
   },
   headerTitle: {
     fontSize: 22,
@@ -147,10 +161,15 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 20,
-    backgroundColor: "#2563eb",
+    backgroundColor: "#D4AF37",
     alignItems: "center",
     justifyContent: "center",
     alignSelf: "flex-end",
+    overflow: "hidden",
+  },
+  avatarImage: {
+    width: "100%",
+    height: "100%",
   },
   userName_box:{
     alignItems: "center",

@@ -58,6 +58,15 @@ export default function TabsLayout() {
           tabBarIcon:({color}) => (<Ionicons name='home'size={24} color={color} />)
         }}
       />
+
+      <Tabs.Screen 
+        name='tripLog'
+        options={{
+          headerShown:false,
+          title: 'سجل الرحلات',
+          tabBarIcon:({color}) => (<Ionicons name='document-text' size={22} color={color}/>)
+        }}
+      />
     </Tabs>
   );
 }

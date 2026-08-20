@@ -5,12 +5,8 @@
     "version": "1.0.2",
     "icon": "./assets/images/icon.png",
     "scheme": "safedriver",
+    "orientation": "portrait",
     "userInterfaceStyle": "automatic",
-    "splash": {
-      "image": "./assets/images/icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
-    },
     "newArchEnabled": false,
     "ios": {
       "bundleIdentifier": "com.ayaddaya.safedriver",
@@ -28,7 +24,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/icon.png",
+        "foregroundImage": "./assets/images/icon_adaptive.png",
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
@@ -57,6 +53,20 @@
         {
           "icon": "./assets/images/notification-icon.png",
           "color": "#ffffff"
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/splash.png",
+          "imageWidth": 220,
+          "resizeMode": "contain",
+          "backgroundColor": "#ffffff",
+          "dark": {
+            "image": "./assets/images/splash.png",
+            "imageWidth": 220,
+            "backgroundColor": "#ffffff"
+          }
         }
       ]
     ],

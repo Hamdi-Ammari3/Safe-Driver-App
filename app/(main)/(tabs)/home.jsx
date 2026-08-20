@@ -1,44 +1,108 @@
-import { useEffect, useState } from "react";
-import {View,Text,StyleSheet,ScrollView,TouchableOpacity,ActivityIndicator} from "react-native";
+import { useEffect, useRef, useState } from "react";
+import {View,Text,StyleSheet,ScrollView,TouchableOpacity,ActivityIndicator,Image,Animated} from "react-native";
 import { doc, getDoc,collection,query,where,getDocs } from "firebase/firestore";
 import { DB } from "../../../firebaseConfig";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import male from "../../../assets/images/man.png";
+import female from "../../../assets/images/woman.png";
+import lineCardImage from "../../../assets/images/line_card.jpg";
 
-const LineCard = ({ line }) => {
+//Limit a student's name to two words for the compact chip label
+const limitNameToTwoWords = (name = "") => {
+  return name.trim().split(" ").filter(Boolean).slice(0, 2).join(" ");
+};
+
+const LineCard = ({ line, students, schoolLogo }) => {
+  const goToLineDetails = () =>
+    router.push({
+      pathname: "/(main)/lineDetails/[lineID]",
+      params: { lineID: line.id }
+    });
+
+  //Pulsing tap-hint animation to draw the driver's eye to the banner
+  const tapScale = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    const pulse = Animated.loop(
+      Animated.sequence([
+        Animated.timing(tapScale, { toValue: 1.25, duration: 550, useNativeDriver: true }),
+        Animated.timing(tapScale, { toValue: 1,    duration: 550, useNativeDriver: true }),
+      ])
+    );
+    pulse.start();
+    return () => pulse.stop();
+  }, []);
+
   return (
-    <TouchableOpacity
-      style={styles.card}
-      activeOpacity={0.85}
-      onPress={() =>
-        router.push({
-          pathname: "/(main)/lineDetails/[lineID]",
-          params: { lineID: line.id }
-        })
-      }
-    >
-      <View style={styles.iconBox}>
-        <Ionicons name="location-sharp" size={22} color="#fff" />
-      </View>
+    <View style={styles.card}>
+      <TouchableOpacity activeOpacity={0.9} onPress={goToLineDetails}>
+        <Image source={lineCardImage} style={styles.cardBanner} resizeMode="cover" />
+        <View style={styles.bannerOverlay}>
+          <Animated.View style={{ transform: [{ scale: tapScale }] }}>
+            <Ionicons name="hand-left" size={26} color="#fff" />
+          </Animated.View>
+          <Text style={styles.bannerOverlayText}>اضغط هنا لبدء التتبع</Text>
+        </View>
+      </TouchableOpacity>
 
-      <View style={styles.cardContent}>
-        <Text style={styles.cardTitle}>
-          {line.destination || "خط"}
-        </Text>
-        <Text style={styles.cardDesc}>
-          {line.line_number}
-        </Text>
-      </View>
+      <TouchableOpacity
+        style={styles.cardHeader}
+        activeOpacity={0.85}
+        onPress={goToLineDetails}
+      >
+        <View style={styles.iconBox}>
+          {schoolLogo ? (
+            <Image source={{ uri: schoolLogo }} style={styles.schoolLogo} resizeMode="cover" />
+          ) : (
+            <Ionicons name="location-sharp" size={22} color="#fff" />
+          )}
+        </View>
 
-      {/* Riders Badge */}
-      <View style={styles.badge}>
-        <Text style={styles.badgeText}>
-          {line.riders?.length || 0}
-        </Text>
-      </View>
-    </TouchableOpacity>
+        <View style={styles.cardContent}>
+          <Text style={styles.cardTitle}>
+            {line.destination || "خط"}
+          </Text>
+          <Text style={styles.cardDesc}>
+            {line.line_number}
+          </Text>
+        </View>
+
+        {/* Riders Badge */}
+        <View style={styles.badge}>
+          <Text style={styles.badgeText}>
+            {line.riders?.length || 0}
+          </Text>
+        </View>
+      </TouchableOpacity>
+
+      {students?.length > 0 && (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.studentsRow}
+        >
+          {students.map((student) => {
+            const defaultIcon = student.sex === "female" ? female : male;
+
+            return (
+              <View key={student.id} style={styles.studentChip}>
+                <Image
+                  source={student.photo_url ? { uri: student.photo_url } : defaultIcon}
+                  style={styles.studentAvatar}
+                  resizeMode="cover"
+                />
+                <Text style={styles.studentName} numberOfLines={1}>
+                  {limitNameToTwoWords(student.name)}
+                </Text>
+              </View>
+            );
+          })}
+        </ScrollView>
+      )}
+    </View>
   );
 };
 
@@ -47,6 +111,8 @@ export default function DriverHome() {
 
   const [driver, setDriver] = useState(null);
   const [lines, setLines] = useState([]);
+  const [lineStudents, setLineStudents] = useState({});
+  const [schoolLogos, setSchoolLogos] = useState({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -98,6 +164,46 @@ export default function DriverHome() {
       }));
 
       setLines(fetchedLines);
+
+      // ✅ fetch each line's riders so their names/photos can show under the line card
+      const studentsByLine = {};
+
+      await Promise.all(
+        fetchedLines.map(async (line) => {
+          const riderIds = line.riders || [];
+
+          if (riderIds.length === 0) {
+            studentsByLine[line.id] = [];
+            return;
+          }
+
+          const studentSnaps = await Promise.all(
+            riderIds.map((id) => getDoc(doc(DB, "students", id)))
+          );
+
+          studentsByLine[line.id] = studentSnaps
+            .filter((s) => s.exists())
+            .map((s) => ({ id: s.id, ...s.data() }));
+        })
+      );
+
+      setLineStudents(studentsByLine);
+
+      // ✅ fetch each line's school logo (via school_id) to show on the line card
+      const schoolIds = [...new Set(fetchedLines.map((l) => l.school_id).filter(Boolean))];
+
+      if (schoolIds.length > 0) {
+        const schoolSnaps = await Promise.all(
+          schoolIds.map((id) => getDoc(doc(DB, "schools", id)))
+        );
+
+        const logosBySchool = {};
+        schoolSnaps.forEach((s) => {
+          if (s.exists()) logosBySchool[s.id] = s.data().logo_url || null;
+        });
+
+        setSchoolLogos(logosBySchool);
+      }
 
     } catch (error) {
       console.log("Driver home error:", error);
@@ -156,7 +262,12 @@ export default function DriverHome() {
             </View>
           ) : (
             lines.map((line) => (
-              <LineCard key={line.id} line={line} />
+              <LineCard
+                key={line.id}
+                line={line}
+                students={lineStudents[line.id]}
+                schoolLogo={schoolLogos[line.school_id]}
+              />
             ))
           )}
         </View>
@@ -180,7 +291,7 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 24,
     paddingHorizontal: 20,
     justifyContent: "center",
-    backgroundColor:'#2563eb'
+    backgroundColor:'#D4AF37'
   },
   headerContent: {
     flex:1,
@@ -201,13 +312,40 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   card: {
-    flexDirection: "row-reverse",
-    alignItems: "center",
     backgroundColor: "#fff",
     borderRadius: 16,
-    padding: 14,
     marginBottom: 12,
     elevation: 3,
+    overflow: "hidden",
+  },
+  cardBanner: {
+    width: "100%",
+    height: 130,
+  },
+  bannerOverlay: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 130,
+    backgroundColor: "rgba(0,0,0,0.38)",
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    gap: 8,
+  },
+  bannerOverlayText: {
+    color: "#fff",
+    fontSize: 16,
+    fontFamily: "NotoArabicBold",
+    textShadowColor: "rgba(0,0,0,0.6)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
+  },
+  cardHeader: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    padding: 14,
   },
   iconBox: {
     width: 46,
@@ -215,7 +353,12 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor:'#2563eb'
+    backgroundColor:'#D4AF37',
+    overflow: "hidden",
+  },
+  schoolLogo: {
+    width: "100%",
+    height: "100%",
   },
   cardContent: {
     flex: 1,
@@ -244,6 +387,32 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 12,
     fontFamily: "NotoArabicBold",
+  },
+  studentsRow: {
+    flexDirection: "row-reverse",
+    paddingHorizontal: 14,
+    paddingBottom: 14,
+    gap: 12,
+    borderTopWidth: 1,
+    borderTopColor: "#f1f5f9",
+    paddingTop: 12,
+  },
+  studentChip: {
+    alignItems: "center",
+    width: 60,
+  },
+  studentAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "#eee",
+  },
+  studentName: {
+    marginTop: 4,
+    fontSize: 11,
+    fontFamily: "NotoArabicRegular",
+    color: "#374151",
+    textAlign: "center",
   },
   emptyBox: {
     marginTop: 40,

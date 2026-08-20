@@ -1,11 +1,11 @@
 import { useState } from "react";
-import {View,Text,TextInput,TouchableOpacity,StyleSheet,ScrollView,Platform,StatusBar,Alert} from "react-native";
+import {View,Text,TextInput,TouchableOpacity,StyleSheet,ScrollView,Platform,StatusBar,Alert,Image,KeyboardAvoidingView} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { doc, getDoc } from "firebase/firestore";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { DB } from "../../firebaseConfig";
 import { router } from "expo-router";
-import { Ionicons,MaterialIcons } from "@expo/vector-icons";
+import { MaterialIcons } from "@expo/vector-icons";
 
 const Login = () => {
   const [phone, setPhone] = useState("");
@@ -65,14 +65,23 @@ const Login = () => {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <ScrollView
-        contentContainerStyle={styles.container}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior="padding"
+        keyboardVerticalOffset={Platform.OS === "android" ? StatusBar.currentHeight : 0}
       >
+        <ScrollView
+          contentContainerStyle={styles.container}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
         <View style={styles.logoContainer}>
-          <View style={styles.logoBox}>
-            <Ionicons name="car-sport" size={48} color="#fff" />
+          <View style={styles.logoFrame}>
+            <Image
+              source={require("../../assets/images/icon.png")}
+              style={styles.logoImage}
+              resizeMode="contain"
+            />
           </View>
           <Text style={styles.title}>تطبيق السائق</Text>
           <Text style={styles.subtitle}>إدارة رحلاتك اليومية بسهولة</Text>
@@ -129,7 +138,8 @@ const Login = () => {
             </Text>
           </TouchableOpacity>
         </View>
-      </ScrollView>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };
@@ -148,15 +158,20 @@ const styles = StyleSheet.create({
   logoContainer: {
     alignItems: "center",
   },
-  logoBox: {
-    width: 96,
-    height: 96,
-    borderRadius: 24,
-    backgroundColor: "#007AFF",
+  logoFrame: {
+    width: 120,
+    height: 120,
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: "#D4AF37",
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 10,
-    elevation: 6,
+    backgroundColor: "#fff",
+  },
+  logoImage: {
+    width: 90,
+    height: 90,
   },
   content: {
     flex: 1,
@@ -208,7 +223,7 @@ const styles = StyleSheet.create({
   primaryButton: {
     height: 48,
     borderRadius: 12,
-    backgroundColor: "#007AFF",
+    backgroundColor: "#D4AF37",
     justifyContent: "center",
     alignItems: "center",
     marginTop: 7,
